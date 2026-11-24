@@ -45,6 +45,12 @@ button:disabled{opacity:.45;cursor:not-allowed}.stats{display:grid;grid-template
       <div class="stat"><strong id="gcount">0</strong><small>Você segue</small></div>
       <div class="stat"><strong id="ucount">0</strong><small>Não seguem de volta</small></div>
     </div>
+    <div class="panel" style="margin-top:14px;background:#101014">
+      <h2>Relatório da importação</h2>
+      <p id="reportSummary" class="hint"></p>
+      <ul id="fileReport" class="hint" style="padding-left:20px;overflow-wrap:anywhere"></ul>
+      <p id="reportWarnings" class="hint"></p>
+    </div>
     <p class="hint">Perfis que você segue e que não aparecem na sua lista de seguidores:</p>
     <ul id="names"></ul>
     <div class="toolbar">
@@ -69,66 +75,86 @@ function cleanName(value){
   let s=value.trim();
   if(!s)return '';
   try{
-    if(/instagram\.com\//i.test(s)){
-      const u=new URL(s.startsWith('http')?s:'https://'+s);
+    const u=new URL(s.startsWith('http')?s:(s.startsWith('//')?'https:'+s:'https://www.instagram.com/'+s.replace(/^\/+/,'')));
+    const host=u.hostname.toLowerCase().replace(/^www\./,'');
+    if(host==='instagram.com'){
       const parts=u.pathname.split('/').filter(Boolean);
-      s=(parts[0]==='_u'?parts[1]:parts[0])||'';
+      if(!parts.length)return '';
+      s=parts[0]==='_u'?parts[1]||'':parts[0];
+      if(['accounts','about','developer','directory','explore','legal','p','reel','reels','stories','tv'].includes(s.toLowerCase()))return '';
     }
-  }catch{}
+  }catch{
+    s=s.replace(/^@/,'').replace(/\/$/,'');
+  }
   s=s.replace(/^@/,'').replace(/\/$/,'');
   if(!/^[a-zA-Z0-9._]{1,30}$/.test(s))return '';
   return s.toLowerCase();
 }
-function collectJson(data){
-  const found=new Set();
+function parseJsonFile(raw){
+  const data=JSON.parse(raw), names=[], candidates=[];
   function walk(x){
     if(!x)return;
     if(Array.isArray(x)){x.forEach(walk);return;}
     if(typeof x==='object'){
       if(Array.isArray(x.string_list_data)){
         x.string_list_data.forEach(item=>{
+          candidates.push(item);
           const n=cleanName(item.value)||cleanName(item.href);
-          if(n)found.add(n);
+          if(n)names.push(n);
         });
       }
       Object.values(x).forEach(walk);
     }
   }
-  walk(data);return found;
+  walk(data);
+  return {names,candidates:candidates.length};
 }
-function collectHtml(source){
-  const found=new Set(),doc=new DOMParser().parseFromString(source,'text/html');
-  doc.querySelectorAll('a[href]').forEach(a=>{
+function parseHtmlFile(source){
+  const doc=new DOMParser().parseFromString(source,'text/html'), names=[];
+  const anchors=[...doc.querySelectorAll('a[href]')];
+  let candidates=0;
+  anchors.forEach(a=>{
     const href=a.getAttribute('href')||'';
+    const hostIsInstagram=/^(https?:)?\/\/(www\.)?instagram\.com\//i.test(href);
+    if(!hostIsInstagram)return;
+    candidates++;
     const n=cleanName(href)||cleanName(a.textContent);
-    if(n)found.add(n);
+    if(n)names.push(n);
   });
-  return found;
+  return {names,candidates};
 }
-function mergeInto(target,source){source.forEach(n=>target.add(n));}
 async function extractLists(zip){
-  const followers=new Set(),following=new Set();
+  const followers=new Set(),following=new Set(),report=[],warnings=[];
   const entries=Object.keys(zip.files).filter(path=>!zip.files[path].dir);
   const followerFiles=entries.filter(path=>/(^|\/)followers(?:_\d+)?\.(json|html?)$/i.test(path));
-  const followingFiles=entries.filter(path=>/(^|\/)following\.(json|html?)$/i.test(path));
+  const followingFiles=entries.filter(path=>/(^|\/)following(?:_\d+)?\.(json|html?)$/i.test(path));
   if(!followerFiles.length||!followingFiles.length){
-    throw new Error('Não encontrei no ZIP os arquivos de seguidores e seguindo. Baixe novamente suas informações do Instagram incluindo “Seguidores e seguindo”.');
+    throw new Error('Não encontrei os arquivos de seguidores e seguindo no ZIP. Confira se a exportação inclui "Seguidores e seguindo".');
   }
-  async function readEntry(path){
-    const entry=zip.file(path),ext=path.split('.').pop().toLowerCase();
+  async function readEntry(path,target,kind){
+    const ext=path.split('.').pop().toLowerCase();
+    let parsed;
     if(ext==='json'){
-      const raw=await entry.async('string');
-      try{return collectJson(JSON.parse(raw));}
-      catch{throw new Error('O arquivo '+path+' não contém um JSON válido.');}
+      try{parsed=parseJsonFile(await zip.file(path).async('string'));}
+      catch(e){throw new Error('Não foi possível ler '+path+': JSON inválido.');}
+    }else{
+      parsed=parseHtmlFile(await zip.file(path).async('string'));
     }
-    return collectHtml(await entry.async('string'));
+    const before=target.size;
+    parsed.names.forEach(n=>target.add(n));
+    const added=target.size-before;
+    const duplicate=Math.max(0,parsed.names.length-added);
+    const invalid=Math.max(0,parsed.candidates-parsed.names.length);
+    report.push({path,kind,candidates:parsed.candidates,valid:parsed.names.length,added,duplicate,invalid});
   }
-  for(const path of followerFiles)mergeInto(followers,await readEntry(path));
-  for(const path of followingFiles)mergeInto(following,await readEntry(path));
+  for(const path of followerFiles)await readEntry(path,followers,'Seguidores');
+  for(const path of followingFiles)await readEntry(path,following,'Você segue');
   if(!followers.size||!following.size){
-    throw new Error('Os arquivos foram encontrados, mas não foi possível extrair os perfis. Confira se a exportação contém os dados de seguidores e seguindo.');
+    throw new Error('Os arquivos foram encontrados, mas não foi possível extrair perfis válidos. Confira o formato da exportação.');
   }
-  return {followers,following};
+  if(followerFiles.length>1)warnings.push('A lista de seguidores estava dividida em '+followerFiles.length+' arquivos; todos foram processados.');
+  if(followingFiles.length>1)warnings.push('A lista de contas seguidas estava dividida em '+followingFiles.length+' arquivos; todos foram processados.');
+  return {followers,following,report,warnings,followerFiles,followingFiles};
 }
 $('analyze').addEventListener('click',async()=>{
   const archive=$('archive').files[0];
@@ -140,8 +166,16 @@ $('analyze').addEventListener('click',async()=>{
   $('message').textContent='Lendo o arquivo ZIP no seu dispositivo...';
   try{
     const zip=await JSZip.loadAsync(archive);
-    const {followers,following}=await extractLists(zip);
+    const {followers,following,report,warnings,followerFiles,followingFiles}=await extractLists(zip);
     notFollowingBack=[...following].filter(n=>!followers.has(n)).sort();
+    $('reportSummary').textContent='Arquivos de seguidores: '+followerFiles.length+' | Arquivos de contas seguidas: '+followingFiles.length+' | Perfis únicos lidos: '+followers.size+' seguidores e '+following.size+' contas seguidas.';
+    $('fileReport').replaceChildren();
+    report.forEach(item=>{
+      const li=document.createElement('li');
+      li.textContent=item.kind+' — '+item.path+': '+item.candidates+' registros analisados, '+item.valid+' perfis válidos, '+item.added+' novos, '+item.duplicate+' repetidos e '+item.invalid+' não reconhecidos.';
+      $('fileReport').appendChild(li);
+    });
+    $('reportWarnings').textContent=warnings.length?warnings.join(' '):'Nenhuma lista dividida em partes foi detectada. Registros repetidos são contados uma única vez.';
     $('fcount').textContent=followers.size;
     $('gcount').textContent=following.size;
     $('ucount').textContent=notFollowingBack.length;
