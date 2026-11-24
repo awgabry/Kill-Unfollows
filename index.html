@@ -69,9 +69,10 @@ function cleanName(value){
   let s=value.trim();
   if(!s)return '';
   try{
-    if(s.includes('instagram.com/')){
+    if(/instagram\.com\//i.test(s)){
       const u=new URL(s.startsWith('http')?s:'https://'+s);
-      s=u.pathname.split('/').filter(Boolean)[0]||'';
+      const parts=u.pathname.split('/').filter(Boolean);
+      s=(parts[0]==='_u'?parts[1]:parts[0])||'';
     }
   }catch{}
   s=s.replace(/^@/,'').replace(/\/$/,'');
@@ -98,7 +99,8 @@ function collectJson(data){
 function collectHtml(source){
   const found=new Set(),doc=new DOMParser().parseFromString(source,'text/html');
   doc.querySelectorAll('a[href]').forEach(a=>{
-    const n=cleanName(a.getAttribute('href'))||cleanName(a.textContent);
+    const href=a.getAttribute('href')||'';
+    const n=cleanName(href)||cleanName(a.textContent);
     if(n)found.add(n);
   });
   return found;
