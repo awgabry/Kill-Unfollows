@@ -1,100 +1,139 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0b0b0d">
-    <meta name="description" content="Kill Unfollows - Descubra quem não segue você de volta.">
-
-    <title>Kill Unfollows</title>
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #0b0b0d;
-            color: #ffffff;
-            font-family: Arial, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 600px;
-            width: 100%;
-        }
-
-        h1 {
-            font-size: 48px;
-            font-weight: 900;
-            letter-spacing: -2px;
-            margin-bottom: 15px;
-        }
-
-        h1 span {
-            color: #d8ff3e;
-        }
-
-        p {
-            color: #aaa;
-            font-size: 17px;
-            margin-bottom: 30px;
-        }
-
-        .button {
-            display: inline-block;
-            background: #d8ff3e;
-            color: #111;
-            padding: 15px 30px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: 0.2s;
-        }
-
-        .button:hover {
-            transform: scale(1.05);
-        }
-
-        footer {
-            margin-top: 50px;
-            color: #666;
-            font-size: 12px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0b0d">
+<meta name="description" content="Compare seus seguidores do Instagram com privacidade.">
+<title>Kill Unfollows</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0b0d;--panel:#151519;--line:#292930;--lime:#d8ff3e;--muted:#a3a3ad}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font:16px Arial,sans-serif;min-height:100vh;padding:28px 16px}
+main{max-width:760px;margin:0 auto}.brand{font-size:clamp(30px,7vw,48px);font-weight:900;letter-spacing:-2px}.brand span{color:var(--lime)}
+.lead{color:var(--muted);line-height:1.55;margin:12px 0 24px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0}
+h2{font-size:19px;margin:0 0 12px}.hint{font-size:13px;color:var(--muted);line-height:1.5}
+label.file{display:block;border:1px dashed #555560;border-radius:12px;padding:16px;margin:12px 0;color:#eee}
+input[type=file]{display:block;width:100%;margin-top:10px;color:var(--muted)}
+button{border:0;border-radius:10px;padding:14px 18px;background:var(--lime);color:#111;font-weight:800;font-size:15px;cursor:pointer;width:100%;margin-top:12px}
+button:disabled{opacity:.45;cursor:not-allowed}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:#202026;border-radius:12px;padding:14px}.stat strong{display:block;font-size:25px;color:var(--lime)}.stat small{color:var(--muted)}
+#results{display:none}.toolbar{display:flex;gap:10px;flex-wrap:wrap}.toolbar button{width:auto;flex:1;min-width:130px}
+#names{list-style:none;padding:0;margin:12px 0;max-height:380px;overflow:auto}#names li{padding:10px 12px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.notice{color:var(--muted);font-size:12px;line-height:1.5;margin-top:18px}.error{color:#ff8585}.success{color:var(--lime)}
+</style>
 </head>
-
 <body>
-
-    <main class="container">
-
-        <h1>KILL <span>UNFOLLOWS</span></h1>
-
-        <p>
-            Assuma o controle do seu Instagram.
-            Descubra quem não segue você de volta.
-        </p>
-
-        <a href="#" class="button">
-            COMEÇAR AGORA
-        </a>
-
-        <footer>
-            Kill Unfollows © 2026
-            <br>
-            Sua privacidade é nossa prioridade.
-        </footer>
-
-    </main>
-
+<main>
+  <div class="brand">KILL <span>UNFOLLOWS</span></div>
+  <p class="lead">Descubra quem você segue e não segue você de volta. A comparação acontece localmente neste dispositivo.</p>
+  <section class="panel">
+    <h2>1. Importe seus dados do Instagram</h2>
+    <p class="hint">Na Central de Contas do Instagram, baixe suas informações em HTML ou JSON. Selecione os arquivos de seguidores e seguindo. Normalmente eles se chamam followers_1.html ou followers_1.json e following.html ou following.json.</p>
+    <label class="file">Arquivo(s) de seguidores
+      <input id="followers" type="file" accept=".json,.html,.htm" multiple>
+    </label>
+    <label class="file">Arquivo(s) de contas que você segue
+      <input id="following" type="file" accept=".json,.html,.htm" multiple>
+    </label>
+    <button id="compare">COMPARAR AGORA</button>
+    <p id="message" class="hint" aria-live="polite"></p>
+  </section>
+  <section id="results" class="panel">
+    <h2>2. Resultado da comparação</h2>
+    <div class="stats">
+      <div class="stat"><strong id="fcount">0</strong><small>Seguidores</small></div>
+      <div class="stat"><strong id="gcount">0</strong><small>Você segue</small></div>
+      <div class="stat"><strong id="ucount">0</strong><small>Não seguem de volta</small></div>
+    </div>
+    <p class="hint">Contas que você segue e que não aparecem na sua lista de seguidores:</p>
+    <ul id="names"></ul>
+    <div class="toolbar">
+      <button id="copy" type="button">COPIAR LISTA</button>
+      <button id="csv" type="button">BAIXAR CSV</button>
+    </div>
+  </section>
+  <p class="notice">Privacidade: os arquivos são lidos apenas no navegador e não são enviados a nenhum servidor. O Kill Unfollows não solicita sua senha do Instagram nem executa unfollow automático. Confira os resultados antes de tomar qualquer ação. A exportação pode não refletir alterações feitas depois da data em que foi gerada.</p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let notFollowingBack = [];
+function cleanName(value){
+  if(typeof value !== 'string') return '';
+  let s=value.trim();
+  if(!s) return '';
+  try{ if(s.includes('instagram.com/')){const u=new URL(s.startsWith('http')?s:'https://'+s);s=u.pathname.split('/').filter(Boolean)[0]||'';} }catch{}
+  s=s.replace(/^@/,'').replace(/\/$/,'');
+  if(!/^[a-zA-Z0-9._]{1,30}$/.test(s)) return '';
+  return s.toLowerCase();
+}
+function collectJson(data){
+  const found=new Set();
+  function walk(x){
+    if(!x) return;
+    if(Array.isArray(x)){x.forEach(walk);return;}
+    if(typeof x==='object'){
+      if(Array.isArray(x.string_list_data)){
+        x.string_list_data.forEach(item=>{const n=cleanName(item.value)||cleanName(item.href);if(n)found.add(n);});
+      }
+      if(typeof x.title==='string'){const n=cleanName(x.title);if(n)found.add(n);}
+      Object.values(x).forEach(walk);
+    }
+  }
+  walk(data);return found;
+}
+function collectHtml(source){
+  const found=new Set(),doc=new DOMParser().parseFromString(source,'text/html');
+  doc.querySelectorAll('a[href]').forEach(a=>{
+    const n=cleanName(a.getAttribute('href'))||cleanName(a.textContent);
+    if(n)found.add(n);
+  });
+  return found;
+}
+async function readFiles(files){
+  const all=new Set();
+  for(const f of files){
+    const source=await f.text();
+    let parsed;
+    if(f.name.toLowerCase().endsWith('.json')){
+      try{parsed=collectJson(JSON.parse(source));}
+      catch{throw new Error('Não foi possível ler o JSON: '+f.name);}
+    }else parsed=collectHtml(source);
+    parsed.forEach(n=>all.add(n));
+  }
+  return all;
+}
+$('compare').addEventListener('click',async()=>{
+  const fs=[...$('followers').files],gs=[...$('following').files];
+  $('message').textContent='';
+  $('results').style.display='none';
+  if(!fs.length||!gs.length){$('message').textContent='Selecione pelo menos um arquivo de seguidores e um de contas que você segue.';return;}
+  $('compare').disabled=true;$('compare').textContent='ANALISANDO...';
+  try{
+    const [followers,following]=await Promise.all([readFiles(fs),readFiles(gs)]);
+    notFollowingBack=[...following].filter(n=>!followers.has(n)).sort();
+    $('fcount').textContent=followers.size;
+    $('gcount').textContent=following.size;
+    $('ucount').textContent=notFollowingBack.length;
+    $('names').replaceChildren();
+    if(notFollowingBack.length){
+      notFollowingBack.forEach(n=>{const li=document.createElement('li');li.textContent='@'+n;$('names').appendChild(li);});
+    }else{const li=document.createElement('li');li.textContent='Nenhuma conta encontrada nesta comparação.';$('names').appendChild(li);}
+    $('results').style.display='block';
+    $('message').textContent='Comparação concluída. '+notFollowingBack.length+' conta(s) não seguem você de volta.';
+    $('message').className='hint success';
+  }catch(e){$('message').textContent=e.message||'Erro ao ler os arquivos. Confira se são exportações do Instagram.';$('message').className='hint error';}
+  finally{$('compare').disabled=false;$('compare').textContent='COMPARAR AGORA';}
+});
+$('copy').addEventListener('click',async()=>{
+  await navigator.clipboard.writeText(notFollowingBack.map(n=>'@'+n).join('\n'));
+  $('message').textContent='Lista copiada.';
+});
+$('csv').addEventListener('click',()=>{
+  const csv='usuario\n'+notFollowingBack.map(n=>'@'+n).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='nao-seguem-de-volta.csv';a.click();URL.revokeObjectURL(url);
+});
+</script>
 </body>
 </html>
